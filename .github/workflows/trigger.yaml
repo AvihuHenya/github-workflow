@@ -5,6 +5,7 @@ on:
     branches:
       - '**'
 
+      
 jobs:
   trigger-odigos-enterprise:
     runs-on: ubuntu-latest
