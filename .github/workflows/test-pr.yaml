@@ -1,0 +1,19 @@
+name: Print PR Event Properties
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - closed # Optional, include as needed.
+
+jobs:
+  print-pr-event:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Print all PR event properties
+        run: echo '${{ toJson(github.event) }}'
