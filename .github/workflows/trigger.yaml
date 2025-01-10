@@ -16,4 +16,4 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.REMOTE_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/AvihuHenya/remote-repo/dispatches \
-          -d '{"event_type": "enterprise-dependencies-update", "client_payload": {"pr_creator": "${{ github.event.pull_request.user.login }}"}}'
+          -d '{"event_type": "enterprise-dependencies-update", "client_payload": {"pr_creator": "${{ github.event.pusher.name }}"}}'
