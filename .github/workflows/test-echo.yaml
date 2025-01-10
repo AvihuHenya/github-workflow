@@ -15,4 +15,4 @@ jobs:
 
       - name: Print pusher's username
         run: |
-            echo "This push was triggered by: ${{ github }}"
+            echo "This push was triggered by: '${{ toJson(github.event) }}'"
