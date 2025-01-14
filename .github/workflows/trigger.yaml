@@ -8,7 +8,6 @@ on:
 jobs:
   trigger-odigos-enterprise:
     runs-on: ubuntu-latest
-    
     steps:    
       - name: Trigger workflow in another repository
         run: |
