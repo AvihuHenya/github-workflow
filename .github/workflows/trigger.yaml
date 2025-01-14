@@ -6,7 +6,6 @@ on:
       - '**'
 
 jobs:
-    
   trigger-odigos-enterprise:
     runs-on: ubuntu-latest
     steps:    
