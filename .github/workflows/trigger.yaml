@@ -46,46 +46,7 @@ jobs:
         run: |
           echo "Full event context:"
           echo '${{ toJSON(github.event) }}'
-
-      - name: Get PR from commit
-        id: pr-info
-        run: |
-          echo "Checking commit: ${{ github.event.after }}"
           
-          # Get PR number that contains this commit
-          PR_DATA=$(gh api graphql -f query='
-            query($owner:String!, $repo:String!, $sha:String!) {
-              repository(owner:$owner, name:$repo) {
-                pullRequests(first:1, states:OPEN) {
-                  nodes {
-                    number
-                    author {
-                      login
-                    }
-                    commits(last:1) {
-                      nodes {
-                        commit {
-                          oid
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }' -f owner="${{ github.repository_owner }}" -f repo="${{ github.event.repository.name }}" -f sha="${{ github.event.after }}")
-          
-          echo "PR Data: $PR_DATA"
-          
-          # Extract author login using jq
-          PR_OWNER=$(echo "$PR_DATA" | jq -r '.data.repository.pullRequests.nodes[0].author.login')
-          echo "PR Owner: $PR_OWNER"
-          echo "pr_owner=$PR_OWNER" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Use PR owner
-        run: echo "PR was opened by ${{ steps.pr-info.outputs.pr_owner }}"
-
       - name: Trigger workflow in another repository
         run: |
           curl -L \
