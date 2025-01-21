@@ -16,9 +16,6 @@ jobs:
         run: |
             echo "This push was triggered by: '${{ toJson(github.event) }}'"
 
-      - name: Print PR URL
-        run: |
-            echo "Pull Request URL: ${{ github.event.pull_request.html_url }}"     
       - name: Fetch Associated PR
         id: fetch_pr
         env:
@@ -26,6 +23,9 @@ jobs:
         run: |
           # Extract the branch name from the ref
           BRANCH_NAME=${{ github.ref_name }}
+          echo "Branch name: $BRANCH_NAME"
+          echo "GitHub Actor: ${{ github.actor }}"
+          echo "GitHub Repository: ${{ github.repository }}"
           
           # Query the GitHub API for the PR associated with the branch
           PR_URL=$(curl -s \
