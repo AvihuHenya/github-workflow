@@ -28,14 +28,20 @@ jobs:
           echo "GitHub Repository: ${{ github.repository }}"
           
           # Query the GitHub API for the PR associated with the branch
-          PR_URL=$(curl -s \
-          -H "Authorization: Bearer $GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          "https://api.github.com/repos/AvihuHenya/github-workflow/pulls?head=<username>:<branch>&base=main")
+          RESPONSE=$(curl -s \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls?head=${{ github.actor }}:${BRANCH_NAME}&base=main")
 
-          # Save the PR URL to an environment variable
+          echo "API Response: $RESPONSE" # Debugging: print the API response
+
+          # Extract PR URL using jq
+          PR_URL=$(echo "$RESPONSE" | jq -r '.[0].html_url')
+
+          # Save the PR URL to an environment variable if valid
           if [ "$PR_URL" != "null" ]; then
             echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+            echo "Pull Request URL: $PR_URL"
           else
             echo "No PR found for branch: $BRANCH_NAME"
           fi
