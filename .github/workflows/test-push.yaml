@@ -21,29 +21,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Extract the branch name from the ref
-          BRANCH_NAME=${{ github.ref_name }}
-          echo "Branch name: $BRANCH_NAME"
-          echo "GitHub Actor: ${{ github.actor }}"
-          echo "GitHub Repository: ${{ github.repository }}"
-          
-          # Query the GitHub API for the PR associated with the branch
+          # Define variables
+          REPO_OWNER="AvihuHenya"
+          REPO_NAME="github-workflow"
+          COMMIT_SHA="${{ github.sha }}" # Commit SHA from the push event
+
+          # Query GitHub API for PRs linked to the commit
           RESPONSE=$(curl -s \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/pulls?head=${{ github.actor }}:${BRANCH_NAME}&base=main")
+            -H "Accept: application/vnd.github.groot-preview+json" \
+            "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/commits/$COMMIT_SHA/pulls")
 
-          echo "API Response: $RESPONSE" # Debugging: print the API response
+          echo "API Response: $RESPONSE" # Debug response
 
-          # Extract PR URL using jq
+          # Extract PR URL
           PR_URL=$(echo "$RESPONSE" | jq -r '.[0].html_url')
 
-          # Save the PR URL to an environment variable if valid
           if [ "$PR_URL" != "null" ]; then
             echo "PR_URL=$PR_URL" >> $GITHUB_ENV
             echo "Pull Request URL: $PR_URL"
           else
-            echo "No PR found for branch: $BRANCH_NAME"
+            echo "No PR found for commit: $COMMIT_SHA"
           fi
 
       - name: Output PR URL
