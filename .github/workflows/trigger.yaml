@@ -42,7 +42,8 @@ jobs:
           fi
       - name: github event
         run: |
-          echo "${{github.event}}"
+          echo "Full event context:"
+          echo '${{ toJSON(github.event) }}'
 
       - name: Get PR info
         id: pr-info
