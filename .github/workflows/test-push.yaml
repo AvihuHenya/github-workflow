@@ -19,4 +19,28 @@ jobs:
       - name: Print PR URL
         run: |
             echo "Pull Request URL: ${{ github.event.pull_request.html_url }}"     
+      - name: Fetch Associated PR
+        id: fetch_pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Extract the branch name from the ref
+          BRANCH_NAME=${{ github.ref_name }}
           
+          # Query the GitHub API for the PR associated with the branch
+          PR_URL=$(curl -s \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls?head=${{ github.actor }}:${BRANCH_NAME}" \
+            | jq -r '.[0].html_url')
+
+          # Save the PR URL to an environment variable
+          if [ "$PR_URL" != "null" ]; then
+            echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+          else
+            echo "No PR found for branch: $BRANCH_NAME"
+          fi
+
+      - name: Output PR URL
+        run: |
+          echo "Pull Request URL: $PR_URL"
