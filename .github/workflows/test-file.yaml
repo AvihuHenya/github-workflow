@@ -1,0 +1,49 @@
+name: Print Pusher Name
+
+on:
+  push:
+    branches:
+      - '**' # This will trigger on pushes to any branch.
+
+jobs:
+  print-pusher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Print pusher's username
+        run: |
+            echo "This push was triggered by: '${{ toJson(github.event) }}'"
+
+      - name: Fetch Associated PR
+        id: fetch_pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Define variables
+          REPO_OWNER="AvihuHenya"
+          REPO_NAME="github-workflow"
+          COMMIT_SHA="${{ github.sha }}" # Commit SHA from the push event
+
+          # Query GitHub API for PRs linked to the commit
+          RESPONSE=$(curl -s \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.groot-preview+json" \
+            "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/commits/$COMMIT_SHA/pulls")
+
+          echo "API Response: $RESPONSE" # Debug response
+
+          # Extract PR URL
+          PR_URL=$(echo "$RESPONSE" | jq -r '.[0].html_url')
+
+          if [ "$PR_URL" != "null" ]; then
+            echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+            echo "Pull Request URL: $PR_URL"
+          else
+            echo "No PR found for commit: $COMMIT_SHA"
+          fi
+
+      - name: Output PR URL
+        run: |
+          echo "Pull Request URL: $PR_URL"
