@@ -29,7 +29,8 @@ jobs:
             -H "Accept: application/vnd.github.groot-preview+json" \
             "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/commits/$COMMIT_SHA/pulls")
 
-          echo "API Response: $RESPONSE" # Debug response
+          PR_OWNER=$(echo "$RESPONSE" | jq -r '.[0].user.login')
+          echo "Pull Request Owner: ${{ env.PR_OWNER }}"
 
           # Extract PR URL
           PR_URL=$(echo "$RESPONSE" | jq -r '.[0].html_url')
