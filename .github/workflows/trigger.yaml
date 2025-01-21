@@ -41,23 +41,38 @@ jobs:
             echo "No PR found for commit: $COMMIT_SHA"
           fi
 
-
-      - name: Get PR Info
+      - name: Get PR info
         id: pr-info
         run: |
-          # Get the branch name from the push event
-          BRANCH_NAME=${{ github.ref }}
-          BRANCH_NAME=${BRANCH_NAME#refs/heads/}
-          # Use GitHub CLI to find the associated PR
-          PR_OWNER=$(gh pr list --state open --base $BRANCH_NAME --json author --jq '.[0].author.login')
-          echo "PR_OWNER=$PR_OWNER" >> $GITHUB_ENV
+          # Print the commit SHA we're looking for
+          echo "Looking for commit: ${{ github.event.after }}"
+          
+          # First run gh pr list with all data to see what's available
+          echo "All PRs data:"
+          gh pr list --json url,author,headRefOid --state open
+          
+          # Run the actual command but echo the result
+          echo "Running JQ query:"
+          gh pr list --json url,author,headRefOid --state open | jq '.[] | select(.url | contains("${{ github.event.after }}")) | .author.login'
+          
+          # Store and echo the result
+          PR_URL=$(gh pr list --json url,author,headRefOid --state open --jq '.[] | select(.url | contains("${{ github.event.after }}")) | .author.login')
+          echo "Found PR_URL: $PR_URL"
+          
+          # Set the output
+          echo "PR_OWNER=$PR_URL" >> $GITHUB_OUTPUT
+          
+          # Show what was written to GITHUB_OUTPUT
+          echo "Contents of GITHUB_OUTPUT:"
+          cat $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Output PR Owner
+        
+      - name: Use PR owner
         run: |
-          echo "The PR was opened by: $PR_OWNER"
-  
+          echo "PR owner from output: ${{ steps.pr-info.outputs.PR_OWNER }}"
+          echo "Raw steps context:"
+          echo "${{ toJSON(steps) }}"
 
 
       - name: Trigger workflow in another repository
