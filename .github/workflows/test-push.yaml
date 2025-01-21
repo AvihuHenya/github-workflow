@@ -31,7 +31,7 @@ jobs:
           PR_URL=$(curl -s \
           -H "Authorization: Bearer $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          "https://api.github.com/repos/<owner>/<repo>/pulls?head=<username>:<branch>&base=main")
+          "https://api.github.com/repos/AvihuHenya/github-workflow/pulls?head=<username>:<branch>&base=main")
 
           # Save the PR URL to an environment variable
           if [ "$PR_URL" != "null" ]; then
