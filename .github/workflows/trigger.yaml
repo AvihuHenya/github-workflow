@@ -39,6 +39,18 @@ jobs:
           fi
 
 
+      - name: Get PR info
+        id: pr-info
+        run: |
+          PR_URL=$(gh pr list --json url,author --jq '.[] | select(.url | contains("${{ github.event.after }}")) | .author.login' --state open)
+          echo "PR_OWNER=$PR_URL" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+      # Then you can use it like:
+      - name: Use PR owner
+        run: echo "PR owner is ${{ steps.pr-info.outputs.PR_OWNER }}"
+
       - name: Trigger workflow in another repository
         run: |
           curl -L \
