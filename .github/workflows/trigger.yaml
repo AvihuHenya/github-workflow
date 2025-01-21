@@ -40,6 +40,9 @@ jobs:
           else
             echo "No PR found for commit: $COMMIT_SHA"
           fi
+      - name: github event
+        run: |
+          echo ${{github.event}}
 
       - name: Get PR info
         id: pr-info
