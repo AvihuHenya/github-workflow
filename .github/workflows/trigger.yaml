@@ -9,6 +9,9 @@ jobs:
   trigger-odigos-enterprise:
     runs-on: ubuntu-latest
     steps:  
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
       - name: Fetch Associated PR
         id: fetch_pr
         env:
