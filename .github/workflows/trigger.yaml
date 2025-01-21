@@ -15,8 +15,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Define variables
-          REPO_OWNER="AvihuHenya"
-          REPO_NAME="github-workflow"
+          REPO_OWNER=$(echo $REPO | cut -d'/' -f1)
+          REPO_NAME=$(echo $REPO | cut -d'/' -f2)
           COMMIT_SHA="${{ github.sha }}" # Commit SHA from the push event
 
           # Query GitHub API for PRs linked to the commit
