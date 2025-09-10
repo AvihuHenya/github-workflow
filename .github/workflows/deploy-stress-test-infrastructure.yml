@@ -20,6 +20,9 @@ on:
 jobs:
   deploy-stress-test-infrastructure:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       cluster_name: ${{ steps.cluster_name.outputs.cluster_name }}
       tag: ${{ steps.tag.outputs.tag }}
@@ -62,7 +65,7 @@ jobs:
 
       - name: Deploy Stress Test Infrastructure
         id: deploy
-        working-directory: tests-infrastructure/terraform/stress-test
+        working-directory: stress-test
         env:
           TF_VAR_cluster_name: ${{ steps.cluster_name.outputs.cluster_name }}
           TF_VAR_odigos_tag: ${{ steps.tag.outputs.tag }}
@@ -74,7 +77,7 @@ jobs:
       - name: Get Infrastructure Status
         id: status
         if: steps.deploy.outcome == 'success'
-        working-directory: tests-infrastructure/terraform/stress-test
+        working-directory: stress-test
         run: |
           echo "status_output<<EOF" >> $GITHUB_OUTPUT
           ./deploy.sh status >> $GITHUB_OUTPUT
@@ -83,38 +86,38 @@ jobs:
       - name: Get Final Status
         id: final_status
         if: steps.deploy.outcome == 'success'
-        working-directory: tests-infrastructure/terraform/stress-test
+        working-directory: stress-test
         run: |
           echo "final_status_output<<EOF" >> $GITHUB_OUTPUT
           ./deploy.sh status >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Notify Slack - Deployment Complete
-        if: always()
-        uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
-        with: 
-          webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
-          success-description: |
-            Stress test infrastructure deployed successfully!
+      # - name: Notify Slack - Deployment Complete
+      #   if: always()
+      #   uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
+      #   with: 
+      #     webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
+      #     success-description: |
+      #       Stress test infrastructure deployed successfully!
             
-            **Odigos Tag:** ${{ steps.tag.outputs.tag }}
-            **Cluster:** ${{ steps.cluster_name.outputs.cluster_name }}
-            **Region:** us-east-1
-            **Load Test Apps:** ${{ inputs.deploy_load_test_apps }}
+      #       **Odigos Tag:** ${{ steps.tag.outputs.tag }}
+      #       **Cluster:** ${{ steps.cluster_name.outputs.cluster_name }}
+      #       **Region:** us-east-1
+      #       **Load Test Apps:** ${{ inputs.deploy_load_test_apps }}
             
-            **Infrastructure Status:**
-            ```
-            ${{ steps.final_status.outputs.final_status_output }}
-            ```
-          failure-description: |
-            ERROR: Failed to deploy stress test infrastructure
+      #       **Infrastructure Status:**
+      #       ```
+      #       ${{ steps.final_status.outputs.final_status_output }}
+      #       ```
+      #     failure-description: |
+      #       ERROR: Failed to deploy stress test infrastructure
             
-            **Odigos Tag:** ${{ steps.tag.outputs.tag }}
-            **Cluster:** ${{ steps.cluster_name.outputs.cluster_name }}
-            **Region:** us-east-1
+      #       **Odigos Tag:** ${{ steps.tag.outputs.tag }}
+      #       **Cluster:** ${{ steps.cluster_name.outputs.cluster_name }}
+      #       **Region:** us-east-1
             
-            **Last Status Check:**
-            ```
-            ${{ steps.status.outputs.status_output }}
+      #       **Last Status Check:**
+      #       ```
+      #       ${{ steps.status.outputs.status_output }}
             ```
           tag: ${{ steps.tag.outputs.tag }}
