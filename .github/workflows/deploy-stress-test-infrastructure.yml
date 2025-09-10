@@ -41,7 +41,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::061717858829:role/GitHubActions-StressTest-Deployer
+          role-to-assume: arn:aws:iam::061717858829:role/GitHubActions-AvihuHenya-github-workflow
           aws-region: us-east-1
 
       - name: Install Tofu (OpenTofu)
