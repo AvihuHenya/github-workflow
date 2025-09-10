@@ -53,13 +53,13 @@ jobs:
       - name: Set Cluster Name
         id: cluster_name
         run: |
-          # Clean tag for use in cluster name (remove v prefix and special characters)
-          CLEAN_TAG=$(echo "${{ steps.tag.outputs.tag }}" | sed 's/^v//' | sed 's/[^a-zA-Z0-9-]/-/g')
+          # Generate simple cluster name
+          TIMESTAMP=$(date +%m%d%H%M)
           
           if [[ -n "${{ inputs.cluster_name }}" ]]; then
             echo "cluster_name=${{ inputs.cluster_name }}" >> $GITHUB_OUTPUT
           else
-            echo "cluster_name=stress-test-${CLEAN_TAG}-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+            echo "cluster_name=stress-test-${CLEAN_TAG}-${TIMESTAMP}" >> $GITHUB_OUTPUT
           fi
           echo "Using cluster name: ${{ steps.cluster_name.outputs.cluster_name }}"
 

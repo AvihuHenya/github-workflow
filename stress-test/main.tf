@@ -152,9 +152,10 @@ data "aws_eks_cluster_auth" "cluster" {
   name = module.eks.cluster_name
 }
 
-# Get EC2 monitoring instance IP from remote state
+# Get EC2 monitoring instance IP from remote state (optional during initial deployment)
 # Data sources to get information from EC2 deployment
 data "terraform_remote_state" "ec2" {
+  count   = fileexists("./ec2/terraform.tfstate") ? 1 : 0
   backend = "local"
   config = {
     path = "./ec2/terraform.tfstate"
@@ -184,9 +185,6 @@ resource "null_resource" "install_prometheus_crds" {
     EOT
   }
 
-  triggers = {
-    cluster_endpoint = module.eks.cluster_endpoint
-  }
 }
 
 # Step 2: Install kube-prometheus-stack (only if deploying apps)
@@ -210,10 +208,6 @@ resource "null_resource" "install_kube_prometheus_stack" {
     EOT
   }
 
-  triggers = {
-    cluster_endpoint = module.eks.cluster_endpoint
-    prometheus_values = filesha256("${path.module}/deploy/monitoring-stack/prometheus-values.yaml")
-  }
 }
 
 # Step 3: Apply prometheus-agent.yaml (only if deploying apps)
@@ -236,7 +230,7 @@ resource "null_resource" "apply_prometheus_agent" {
       echo "Applying prometheus-agent.yaml..."
       kubectl apply -f - <<EOF
 ${templatefile("${path.module}/deploy/monitoring-stack/prometheus-agent.yaml", {
-  ec2_ip = try(data.terraform_remote_state.ec2.outputs.monitoring_instance_private_ip, "pending")
+  ec2_ip = try(data.terraform_remote_state.ec2[0].outputs.monitoring_instance_private_ip, "pending")
 })}
 EOF
       
@@ -244,11 +238,6 @@ EOF
     EOT
   }
 
-  triggers = {
-    cluster_endpoint = module.eks.cluster_endpoint
-    prometheus_agent = filesha256("${path.module}/deploy/monitoring-stack/prometheus-agent.yaml")
-    ec2_ip = try(data.terraform_remote_state.ec2.outputs.monitoring_instance_private_ip, "pending")
-  }
 }
 
 # Step 4: Deploy Odigos (only if deploying apps)
@@ -290,11 +279,6 @@ resource "null_resource" "install_odigos" {
     EOT
   }
 
-  triggers = {
-    cluster_endpoint = module.eks.cluster_endpoint
-    odigos_version = "latest"
-    force_reinstall = "force-odigos-reinstall-$(date +%s)"
-  }
 }
 
 # Step 5: Deploy Workload Generators (only if deploying load-test apps)
@@ -327,14 +311,6 @@ resource "null_resource" "apply_workload_generators" {
     EOT
   }
 
-  triggers = {
-    cluster_endpoint = module.eks.cluster_endpoint
-    go_generator = filesha256("${path.module}/deploy/workloads/generators/go/deployment.yaml")
-    java_generator = filesha256("${path.module}/deploy/workloads/generators/java/deployment.yaml")
-    node_generator = filesha256("${path.module}/deploy/workloads/generators/node/deployment.yaml")
-    python_generator = filesha256("${path.module}/deploy/workloads/generators/python/deployment.yaml")
-    namespace_fix = "load-test-namespace-created"
-  }
 }
 
 # Step 6: Apply Odigos Sources (only if deploying apps)
@@ -365,11 +341,6 @@ resource "null_resource" "apply_odigos_sources" {
     EOT
   }
 
-  triggers = {
-    cluster_endpoint = module.eks.cluster_endpoint
-    odigos_sources = filesha256("${path.module}/deploy/odigos/sources.yaml")
-    namespace_fix = "load-test-namespace-created"
-  }
 }
 
 # Step 7: Deploy Odigos ClickHouse Destination (only if deploying apps)
@@ -378,7 +349,7 @@ resource "null_resource" "apply_odigos_clickhouse_destination" {
   depends_on = [
     null_resource.install_odigos[0],
     null_resource.apply_odigos_sources[0],
-    data.terraform_remote_state.ec2
+    data.terraform_remote_state.ec2[0]
   ]
 
   provisioner "local-exec" {
@@ -394,7 +365,7 @@ resource "null_resource" "apply_odigos_clickhouse_destination" {
       kubectl get pods -n odigos-system
       
       # Get EC2 IP from Terraform remote state
-      EC2_IP="${data.terraform_remote_state.ec2.outputs.monitoring_instance_private_ip}"
+      EC2_IP="${data.terraform_remote_state.ec2[0].outputs.monitoring_instance_private_ip}"
       
       # Verify EC2 IP is available
       if [[ -z "$EC2_IP" || "$EC2_IP" == "destroyed" ]]; then
@@ -418,11 +389,5 @@ EOF
     EOT
   }
 
-  triggers = {
-    cluster_endpoint = module.eks.cluster_endpoint
-    clickhouse_destination = filesha256("${path.module}/deploy/odigos/clickhouse-destination.yaml")
-    ec2_ip = try(data.terraform_remote_state.ec2.outputs.monitoring_instance_private_ip, "pending")
-    force_reinstall = "force-clickhouse-reinstall-$(date +%s)"
-  }
 }
 
