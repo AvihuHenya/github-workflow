@@ -119,5 +119,4 @@ jobs:
       #       **Last Status Check:**
       #       ```
       #       ${{ steps.status.outputs.status_output }}
-            ```
-          tag: ${{ steps.tag.outputs.tag }}
+      #       ```
