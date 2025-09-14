@@ -199,6 +199,9 @@ deploy_infrastructure() {
         return 1
     fi
     
+    # Get cluster name for EC2 configuration
+    local cluster_name=$(tofu output -raw cluster_name 2>/dev/null || get_tf_var cluster_name "odigos-stress-test")
+    
     # Try to import existing IAM resources first, then apply
     log_info "Checking for existing IAM resources..."
     
@@ -232,7 +235,6 @@ deploy_infrastructure() {
     log_info "Step 3: Deploying Kubernetes applications with EC2 IP..."
     
     # Configure kubectl to use the correct cluster endpoint
-    local cluster_name=$(tofu output -raw cluster_name 2>/dev/null || get_tf_var cluster_name "odigos-stress-test")
     local region=$(tofu output -raw region 2>/dev/null || get_tf_var region "us-east-1")
     log_info "Configuring kubectl for cluster: $cluster_name"
     aws eks update-kubeconfig --region "$region" --name "$cluster_name"
