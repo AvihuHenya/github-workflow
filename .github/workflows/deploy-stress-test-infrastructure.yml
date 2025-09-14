@@ -53,13 +53,13 @@ jobs:
       - name: Set Cluster Name
         id: cluster_name
         run: |
-          # Generate simple cluster name
-          TIMESTAMP=$(date +%m%d%H%M)
+          # Generate simple cluster name with DDMMYYYY format
+          TIMESTAMP=$(date +%d%m%Y)
           
           if [[ -n "${{ inputs.cluster_name }}" ]]; then
             echo "cluster_name=${{ inputs.cluster_name }}" >> $GITHUB_OUTPUT
           else
-            echo "cluster_name=stress-test-${CLEAN_TAG}-${TIMESTAMP}" >> $GITHUB_OUTPUT
+            echo "cluster_name=stress-test-${TIMESTAMP}" >> $GITHUB_OUTPUT
           fi
           echo "Using cluster name: ${{ steps.cluster_name.outputs.cluster_name }}"
 

@@ -199,6 +199,30 @@ deploy_infrastructure() {
         return 1
     fi
     
+    # Try to import existing IAM resources first, then apply
+    log_info "Checking for existing IAM resources..."
+    
+    # Check if IAM role exists and import it
+    if aws iam get-role --role-name "monitoring-ec2-ssm-core" &>/dev/null; then
+        log_info "Found existing IAM role, importing it..."
+        run_tf "ec2" "import" "aws_iam_role.ssm_core" "monitoring-ec2-ssm-core" 2>/dev/null || log_warn "Failed to import IAM role, will create new one"
+        
+        # Try to import policy attachment if it exists
+        if aws iam list-attached-role-policies --role-name "monitoring-ec2-ssm-core" --query 'AttachedPolicies[?PolicyArn==`arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore`]' --output text | grep -q "AmazonSSMManagedInstanceCore"; then
+            log_info "Found existing policy attachment, importing it..."
+            run_tf "ec2" "import" "aws_iam_role_policy_attachment.ssm_core_attach" "monitoring-ec2-ssm-core/arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore" 2>/dev/null || log_warn "Failed to import policy attachment"
+        fi
+        
+        # Try to import instance profile if it exists
+        if aws iam get-instance-profile --instance-profile-name "monitoring-ec2-ssm-core" &>/dev/null; then
+            log_info "Found existing instance profile, importing it..."
+            run_tf "ec2" "import" "aws_iam_instance_profile.ssm_core" "monitoring-ec2-ssm-core" 2>/dev/null || log_warn "Failed to import instance profile"
+        fi
+    else
+        log_info "No existing IAM role found, will create new resources"
+    fi
+    
+    # Apply EC2 configuration (will create missing resources or update existing ones)
     if ! run_tf "ec2" "apply" "-auto-approve"; then
         log_error "EC2 monitoring stack deployment failed (monitoring instance, ClickHouse, Grafana)"
         return 1
