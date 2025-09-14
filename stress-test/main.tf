@@ -174,6 +174,10 @@ resource "null_resource" "install_prometheus_crds" {
     command = <<-EOT
       set -e
       
+      # Update kubectl configuration
+      echo "Updating kubectl configuration..."
+      aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}
+      
       # Wait for cluster to be ready
       kubectl wait --for=condition=Ready nodes --all --timeout=300s
       
@@ -195,6 +199,10 @@ resource "null_resource" "install_kube_prometheus_stack" {
   provisioner "local-exec" {
     command = <<-EOT
       set -e
+      
+      # Update kubectl configuration
+      echo "Updating kubectl configuration..."
+      aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}
       
       # Install kube-prometheus-stack with values file
       echo "Installing kube-prometheus-stack..."
@@ -218,6 +226,10 @@ resource "null_resource" "apply_prometheus_agent" {
   provisioner "local-exec" {
     command = <<-EOT
       set -e
+      
+      # Update kubectl configuration
+      echo "Updating kubectl configuration..."
+      aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}
       
       # Wait for CRDs to be ready
       kubectl wait --for condition=established --timeout=60s crd/prometheusagents.monitoring.coreos.com
@@ -290,6 +302,10 @@ resource "null_resource" "apply_workload_generators" {
     command = <<-EOT
       set -e
       
+      # Update kubectl configuration
+      echo "Updating kubectl configuration..."
+      aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}
+      
       # Create load-test namespace first (idempotent)
       echo "Ensuring load-test namespace exists..."
       if ! kubectl get namespace load-test >/dev/null 2>&1; then
@@ -323,6 +339,10 @@ resource "null_resource" "apply_odigos_sources" {
   provisioner "local-exec" {
     command = <<-EOT
       set -e
+      
+      # Update kubectl configuration
+      echo "Updating kubectl configuration..."
+      aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}
       
       # Apply Odigos sources only if workload generators are deployed
       if [[ "${var.deploy_load_test_apps}" == "true" ]]; then
