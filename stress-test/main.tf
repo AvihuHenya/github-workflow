@@ -181,6 +181,11 @@ resource "null_resource" "install_prometheus_crds" {
       # Wait for cluster to be ready
       kubectl wait --for=condition=Ready nodes --all --timeout=300s
       
+      # Add Helm repositories
+      echo "Adding Helm repositories..."
+      helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+      helm repo update
+      
       # Install Prometheus Operator CRDs
       echo "Installing Prometheus Operator CRDs..."
       helm upgrade --install prometheus-crds prometheus-community/prometheus-operator-crds
@@ -203,6 +208,11 @@ resource "null_resource" "install_kube_prometheus_stack" {
       # Update kubectl configuration
       echo "Updating kubectl configuration..."
       aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}
+      
+      # Add Helm repositories (in case they weren't added in previous step)
+      echo "Adding Helm repositories..."
+      helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+      helm repo update
       
       # Install kube-prometheus-stack with values file
       echo "Installing kube-prometheus-stack..."
