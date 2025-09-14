@@ -384,6 +384,7 @@ resource "null_resource" "apply_odigos_clickhouse_destination" {
 
   provisioner "local-exec" {
     command = <<-EOT
+      #!/bin/bash
       set -e  # Exit on any error
       
       # Update kubeconfig
@@ -411,9 +412,17 @@ ${templatefile("${path.module}/deploy/odigos/clickhouse-destination.yaml", {
 })}
 EOF
       
+      # Wait for Odigos to be fully ready before trying to restart gateway
+      echo "Waiting for Odigos to be ready..."
+      kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=odigos-gateway -n odigos-system --timeout=300s || echo "Odigos gateway not found, skipping restart"
+      
       # Restart odigos-gateway deployment to pick up new destination
-      echo "Restarting odigos-gateway deployment..."
-      kubectl rollout restart deployment/odigos-gateway -n odigos-system
+      if kubectl get deployment odigos-gateway -n odigos-system &>/dev/null; then
+        echo "Restarting odigos-gateway deployment..."
+        kubectl rollout restart deployment/odigos-gateway -n odigos-system
+      else
+        echo "Odigos gateway deployment not found, skipping restart"
+      fi
       
       echo "Odigos ClickHouse destination deployment completed!"
     EOT
