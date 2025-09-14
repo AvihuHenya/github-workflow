@@ -414,7 +414,7 @@ EOF
   BASH
 
 
-  tags = { Name = "k6-runner" }
+  tags = { Name = "monitoring-${var.cluster_name}" }
 
 
 }

@@ -223,7 +223,7 @@ deploy_infrastructure() {
     fi
     
     # Apply EC2 configuration (will create missing resources or update existing ones)
-    if ! run_tf "ec2" "apply" "-auto-approve"; then
+    if ! run_tf "ec2" "apply" "-var=cluster_name=$cluster_name" "-auto-approve"; then
         log_error "EC2 monitoring stack deployment failed (monitoring instance, ClickHouse, Grafana)"
         return 1
     fi

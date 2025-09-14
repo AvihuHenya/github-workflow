@@ -8,6 +8,12 @@ variable "name_prefix" {
   default     = "odigos-stress-test"
 }
 
+variable "cluster_name" {
+  description = "Name of the EKS cluster (used for resource naming)"
+  type        = string
+  default     = "odigos-stress-test"
+}
+
 variable "region" {
   description = "AWS region"
   type        = string
