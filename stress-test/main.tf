@@ -391,38 +391,16 @@ resource "null_resource" "apply_odigos_clickhouse_destination" {
       echo "Updating kubeconfig..."
       aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}
       
-      # Verify Odigos is running (it should be ready due to dependency)
-      echo "Verifying Odigos is running..."
-      kubectl get pods -n odigos-system
-      
       # Get EC2 IP from Terraform remote state
       EC2_IP="${data.terraform_remote_state.ec2[0].outputs.monitoring_instance_private_ip}"
-      
-      # Verify EC2 IP is available
-      if [[ -z "$EC2_IP" || "$EC2_IP" == "destroyed" ]]; then
-        echo "ERROR: EC2 monitoring instance IP not available. Please deploy EC2 stack first."
-        exit 1
-      fi
       
       # Apply ClickHouse destination with dynamic EC2 IP
       echo "Applying ClickHouse destination with EC2 IP: $EC2_IP"
       kubectl apply -f - <<EOF
 ${templatefile("${path.module}/deploy/odigos/clickhouse-destination.yaml", {
-  ec2_ip = "$EC2_IP"
+  ec2_ip = "$EC2_IP"  
 })}
 EOF
-      
-      # Wait for Odigos to be fully ready before trying to restart gateway
-      echo "Waiting for Odigos to be ready..."
-      kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=odigos-gateway -n odigos-system --timeout=300s || echo "Odigos gateway not found, skipping restart"
-      
-      # Restart odigos-gateway deployment to pick up new destination
-      if kubectl get deployment odigos-gateway -n odigos-system &>/dev/null; then
-        echo "Restarting odigos-gateway deployment..."
-        kubectl rollout restart deployment/odigos-gateway -n odigos-system
-      else
-        echo "Odigos gateway deployment not found, skipping restart"
-      fi
       
       echo "Odigos ClickHouse destination deployment completed!"
     EOT
