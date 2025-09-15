@@ -411,7 +411,7 @@ resource "null_resource" "apply_odigos_sources" {
       aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}
       
       # Apply Odigos sources only if workload generators are deployed
-      if [[ "${var.deploy_load_test_apps}" == "true" ]]; then
+      if [ "${var.deploy_load_test_apps}" = "true" ]; then
         # Wait for odigos-instrumentor deployment to be ready before applying sources
         echo "Waiting for odigos-instrumentor deployment to be ready..."
         kubectl wait --for=condition=available --timeout=120s deployment/odigos-instrumentor -n odigos-system
