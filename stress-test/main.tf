@@ -166,9 +166,24 @@ data "terraform_remote_state" "ec2" {
 # EKS CLUSTER ACCESS CONFIGURATION
 # =============================================================================
 
-# Parse comma-separated strings into lists
+# Get current AWS caller identity
+data "aws_caller_identity" "current" {}
+
+# Get all IAM users in the account
+data "aws_iam_users" "all_users" {}
+
+# Grant access to all account users + explicitly specified users/roles
 locals {
-  cluster_admin_users_list = var.cluster_admin_users != "" ? split(",", var.cluster_admin_users) : []
+  # Get all user ARNs in the account
+  all_account_users = [for user in data.aws_iam_users.all_users.arns : user]
+  
+  # Combine provided users with all account users
+  cluster_admin_users_list = distinct(concat(
+    var.cluster_admin_users != "" ? split(",", var.cluster_admin_users) : [],
+    local.all_account_users
+  ))
+  
+  # Keep roles as specified (for CI/CD, etc.)
   cluster_admin_roles_list = var.cluster_admin_roles != "" ? split(",", var.cluster_admin_roles) : []
 }
 
