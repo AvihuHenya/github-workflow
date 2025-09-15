@@ -160,3 +160,19 @@ variable "odigos_api_key" {
   default     = ""
   sensitive   = true
 }
+
+# =============================================================================
+# ACCESS CONFIGURATION
+# =============================================================================
+
+variable "cluster_admin_users" {
+  description = "List of IAM user ARNs that should have admin access to the EKS cluster"
+  type        = list(string)
+  default     = []
+}
+
+variable "cluster_admin_roles" {
+  description = "List of IAM role ARNs that should have admin access to the EKS cluster"
+  type        = list(string)
+  default     = []
+}

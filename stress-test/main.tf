@@ -163,6 +163,62 @@ data "terraform_remote_state" "ec2" {
 }
 
 # =============================================================================
+# EKS CLUSTER ACCESS CONFIGURATION
+# =============================================================================
+
+# Create access entries for admin users
+resource "aws_eks_access_entry" "admin_users" {
+  for_each = toset(var.cluster_admin_users)
+  
+  cluster_name      = module.eks.cluster_name
+  principal_arn     = each.value
+  kubernetes_groups = ["system:masters"]
+  type              = "STANDARD"
+}
+
+# Associate admin policy with users
+resource "aws_eks_access_policy_association" "admin_users" {
+  for_each = toset(var.cluster_admin_users)
+  
+  cluster_name  = module.eks.cluster_name
+  principal_arn = each.value
+  
+  policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  
+  access_scope {
+    type = "cluster"
+  }
+  
+  depends_on = [aws_eks_access_entry.admin_users]
+}
+
+# Create access entries for admin roles
+resource "aws_eks_access_entry" "admin_roles" {
+  for_each = toset(var.cluster_admin_roles)
+  
+  cluster_name      = module.eks.cluster_name
+  principal_arn     = each.value
+  kubernetes_groups = ["system:masters"]
+  type              = "STANDARD"
+}
+
+# Associate admin policy with roles
+resource "aws_eks_access_policy_association" "admin_roles" {
+  for_each = toset(var.cluster_admin_roles)
+  
+  cluster_name  = module.eks.cluster_name
+  principal_arn = each.value
+  
+  policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  
+  access_scope {
+    type = "cluster"
+  }
+  
+  depends_on = [aws_eks_access_entry.admin_roles]
+}
+
+# =============================================================================
 # PROMETHEUS DEPLOYMENT (3-step process)
 # =============================================================================
 

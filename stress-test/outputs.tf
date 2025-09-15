@@ -1,4 +1,10 @@
 # =============================================================================
+# DATA SOURCES
+# =============================================================================
+
+data "aws_caller_identity" "current" {}
+
+# =============================================================================
 # VPC OUTPUTS
 # =============================================================================
 
@@ -44,6 +50,20 @@ output "node_security_group_id" {
 output "kubectl_config_command" {
   description = "Command to configure kubectl"
   value       = "aws eks update-kubeconfig --region ${var.region} --name ${var.cluster_name}"
+}
+
+output "kubectx_command" {
+  description = "Command to switch to this cluster context using kubectx"
+  value       = "kubectx arn:aws:eks:${var.region}:${data.aws_caller_identity.current.account_id}:cluster/${var.cluster_name}"
+}
+
+output "cluster_connection_commands" {
+  description = "Commands to connect to the EKS cluster"
+  value = {
+    update_kubeconfig = "aws eks update-kubeconfig --region ${var.region} --name ${var.cluster_name}"
+    kubectx_switch    = "kubectx arn:aws:eks:${var.region}:${data.aws_caller_identity.current.account_id}:cluster/${var.cluster_name}"
+    test_connection   = "kubectl get nodes"
+  }
 }
 
 output "cluster_info" {

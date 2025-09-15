@@ -74,6 +74,8 @@ jobs:
           TF_VAR_cluster_name: ${{ steps.cluster_name.outputs.cluster_name }}
           TF_VAR_odigos_tag: ${{ steps.tag.outputs.tag }}
           TF_VAR_odigos_api_key: ${{ secrets.ODIGOS_API_KEY }}
+          TF_VAR_cluster_admin_users: ${{ secrets.CLUSTER_ADMIN_USERS }}
+          TF_VAR_cluster_admin_roles: ${{ secrets.CLUSTER_ADMIN_ROLES }}
         run: |
           chmod +x deploy.sh
           ./deploy.sh deploy
@@ -95,6 +97,39 @@ jobs:
           echo "final_status_output<<EOF" >> $GITHUB_OUTPUT
           ./deploy.sh status >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Display Cluster Connection Commands
+        if: steps.deploy.outcome == 'success'
+        working-directory: stress-test
+        run: |
+          echo "🎉 Cluster deployed successfully!"
+          echo ""
+          echo "📋 Connection Commands:"
+          echo "======================"
+          echo ""
+          echo "1. Update kubeconfig:"
+          echo "   aws eks update-kubeconfig --region us-east-1 --name ${{ steps.cluster_name.outputs.cluster_name }}"
+          echo ""
+          echo "2. Switch to cluster context (if you have kubectx installed):"
+          echo "   kubectx arn:aws:eks:us-east-1:061717858829:cluster/${{ steps.cluster_name.outputs.cluster_name }}"
+          echo ""
+          echo "3. Test connection:"
+          echo "   kubectl get nodes"
+          echo ""
+          echo "4. View all contexts:"
+          echo "   kubectl config get-contexts"
+          echo ""
+          echo "🔐 Cluster Access:"
+          echo "================="
+          echo "The following users/roles have been granted admin access to the cluster:"
+          if [[ -n "${{ secrets.CLUSTER_ADMIN_USERS }}" ]]; then
+            echo "Users: ${{ secrets.CLUSTER_ADMIN_USERS }}"
+          fi
+          if [[ -n "${{ secrets.CLUSTER_ADMIN_ROLES }}" ]]; then
+            echo "Roles: ${{ secrets.CLUSTER_ADMIN_ROLES }}"
+          fi
+          echo ""
+          echo "💡 Note: Make sure your AWS credentials are configured and you have the necessary permissions."
 
       # - name: Notify Slack - Deployment Complete
       #   if: always()
