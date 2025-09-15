@@ -479,6 +479,18 @@ ${templatefile("${path.module}/deploy/odigos/clickhouse-destination.yaml", {
 })}
 EOF
       
+      # Wait for Odigos to be fully ready before trying to restart gateway
+      echo "Waiting for Odigos to be ready..."
+      kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=odigos-gateway -n odigos-system --timeout=300s || echo "Odigos gateway not found, skipping restart"
+      
+      # Restart odigos-gateway deployment to pick up new destination (if it exists)
+      if kubectl get deployment odigos-gateway -n odigos-system >/dev/null 2>&1; then
+        echo "Restarting odigos-gateway deployment..."
+        kubectl rollout restart deployment/odigos-gateway -n odigos-system
+      else
+        echo "Odigos gateway deployment not found, skipping restart"
+      fi
+      
       echo "Odigos ClickHouse destination deployment completed!"
     EOT
   }
