@@ -63,6 +63,15 @@ module "eks" {
 
   enable_cluster_creator_admin_permissions = true
 
+  # Use existing KMS key to avoid conflicts
+  cluster_encryption_config = {
+    provider_key_arn = data.aws_kms_key.existing.arn
+    resources        = ["secrets"]
+  }
+
+  # Disable CloudWatch log group creation to use existing one
+  create_cloudwatch_log_group = false
+
   eks_managed_node_group_defaults = {
     ami_type = "AL2_x86_64" # Amazon Linux 2 (x86-64)
   }
@@ -172,6 +181,11 @@ data "aws_caller_identity" "current" {}
 # Get all IAM users in the account
 data "aws_iam_users" "all_users" {}
 
+# Get existing KMS key by alias
+data "aws_kms_key" "existing" {
+  key_id = "alias/eks/${var.cluster_name}"
+}
+
 # Grant access to all account users + explicitly specified users/roles
 locals {
   # Get all user ARNs in the account
@@ -191,10 +205,9 @@ locals {
 resource "aws_eks_access_entry" "admin_users" {
   for_each = toset(local.cluster_admin_users_list)
   
-  cluster_name      = module.eks.cluster_name
-  principal_arn     = each.value
-  kubernetes_groups = ["system:masters"]
-  type              = "STANDARD"
+  cluster_name = module.eks.cluster_name
+  principal_arn = each.value
+  type         = "STANDARD"
 }
 
 # Associate admin policy with users
@@ -217,10 +230,9 @@ resource "aws_eks_access_policy_association" "admin_users" {
 resource "aws_eks_access_entry" "admin_roles" {
   for_each = toset(local.cluster_admin_roles_list)
   
-  cluster_name      = module.eks.cluster_name
-  principal_arn     = each.value
-  kubernetes_groups = ["system:masters"]
-  type              = "STANDARD"
+  cluster_name = module.eks.cluster_name
+  principal_arn = each.value
+  type         = "STANDARD"
 }
 
 # Associate admin policy with roles
