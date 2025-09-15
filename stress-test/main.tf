@@ -166,9 +166,15 @@ data "terraform_remote_state" "ec2" {
 # EKS CLUSTER ACCESS CONFIGURATION
 # =============================================================================
 
+# Parse comma-separated strings into lists
+locals {
+  cluster_admin_users_list = var.cluster_admin_users != "" ? split(",", var.cluster_admin_users) : []
+  cluster_admin_roles_list = var.cluster_admin_roles != "" ? split(",", var.cluster_admin_roles) : []
+}
+
 # Create access entries for admin users
 resource "aws_eks_access_entry" "admin_users" {
-  for_each = toset(var.cluster_admin_users)
+  for_each = toset(local.cluster_admin_users_list)
   
   cluster_name      = module.eks.cluster_name
   principal_arn     = each.value
@@ -178,7 +184,7 @@ resource "aws_eks_access_entry" "admin_users" {
 
 # Associate admin policy with users
 resource "aws_eks_access_policy_association" "admin_users" {
-  for_each = toset(var.cluster_admin_users)
+  for_each = toset(local.cluster_admin_users_list)
   
   cluster_name  = module.eks.cluster_name
   principal_arn = each.value
@@ -194,7 +200,7 @@ resource "aws_eks_access_policy_association" "admin_users" {
 
 # Create access entries for admin roles
 resource "aws_eks_access_entry" "admin_roles" {
-  for_each = toset(var.cluster_admin_roles)
+  for_each = toset(local.cluster_admin_roles_list)
   
   cluster_name      = module.eks.cluster_name
   principal_arn     = each.value
@@ -204,7 +210,7 @@ resource "aws_eks_access_entry" "admin_roles" {
 
 # Associate admin policy with roles
 resource "aws_eks_access_policy_association" "admin_roles" {
-  for_each = toset(var.cluster_admin_roles)
+  for_each = toset(local.cluster_admin_roles_list)
   
   cluster_name  = module.eks.cluster_name
   principal_arn = each.value

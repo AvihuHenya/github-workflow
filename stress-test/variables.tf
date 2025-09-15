@@ -166,13 +166,13 @@ variable "odigos_api_key" {
 # =============================================================================
 
 variable "cluster_admin_users" {
-  description = "List of IAM user ARNs that should have admin access to the EKS cluster"
-  type        = list(string)
-  default     = []
+  description = "Comma-separated list of IAM user ARNs that should have admin access to the EKS cluster"
+  type        = string
+  default     = ""
 }
 
 variable "cluster_admin_roles" {
-  description = "List of IAM role ARNs that should have admin access to the EKS cluster"
-  type        = list(string)
-  default     = []
+  description = "Comma-separated list of IAM role ARNs that should have admin access to the EKS cluster"
+  type        = string
+  default     = ""
 }

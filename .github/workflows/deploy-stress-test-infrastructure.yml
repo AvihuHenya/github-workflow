@@ -74,8 +74,8 @@ jobs:
           TF_VAR_cluster_name: ${{ steps.cluster_name.outputs.cluster_name }}
           TF_VAR_odigos_tag: ${{ steps.tag.outputs.tag }}
           TF_VAR_odigos_api_key: ${{ secrets.ODIGOS_API_KEY }}
-          TF_VAR_cluster_admin_users: ${{ secrets.CLUSTER_ADMIN_USERS }}
-          TF_VAR_cluster_admin_roles: ${{ secrets.CLUSTER_ADMIN_ROLES }}
+          TF_VAR_cluster_admin_users: ${{ secrets.CLUSTER_ADMIN_USERS || '' }}
+          TF_VAR_cluster_admin_roles: ${{ secrets.CLUSTER_ADMIN_ROLES || '' }}
         run: |
           chmod +x deploy.sh
           ./deploy.sh deploy
