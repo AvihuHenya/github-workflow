@@ -14,9 +14,20 @@ terraform {
 
 data "aws_availability_zones" "available" {}
 
-# Get existing KMS key for EKS cluster encryption
-data "aws_kms_key" "existing" {
-  key_id = "alias/eks/${var.cluster_name}"
+# Create KMS key for EKS cluster encryption
+resource "aws_kms_key" "eks_cluster" {
+  description             = "KMS key for EKS cluster ${var.cluster_name} encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = merge(local.common_tags, {
+    Name = "${var.cluster_name}-eks-key"
+  })
+}
+
+resource "aws_kms_alias" "eks_cluster" {
+  name          = "alias/eks/${var.cluster_name}"
+  target_key_id = aws_kms_key.eks_cluster.key_id
 }
 
 locals {
@@ -68,9 +79,9 @@ module "eks" {
 
   enable_cluster_creator_admin_permissions = true
 
-  # Use existing KMS key for cluster encryption
+  # Use KMS key for cluster encryption
   cluster_encryption_config = {
-    provider_key_arn = data.aws_kms_key.existing.arn
+    provider_key_arn = aws_kms_key.eks_cluster.arn
     resources        = ["secrets"]
   }
 
