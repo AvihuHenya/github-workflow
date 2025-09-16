@@ -1,4 +1,10 @@
 # =============================================================================
+# DATA SOURCES
+# =============================================================================
+
+data "aws_caller_identity" "current" {}
+
+# =============================================================================
 # VPC OUTPUTS
 # =============================================================================
 
@@ -98,14 +104,5 @@ output "workload_generators_status" {
   description = "Workload generators deployment status"
   value       = "Span generators deployed in load-test namespace"
   depends_on  = [null_resource.apply_workload_generators]
-}
-
-output "cluster_access_info" {
-  description = "Information about who has access to the EKS cluster"
-  value = {
-    users = local.cluster_admin_users_list
-    roles = local.cluster_admin_roles_list
-    current_caller = data.aws_caller_identity.current.arn
-  }
 }
 

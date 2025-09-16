@@ -14,6 +14,11 @@ terraform {
 
 data "aws_availability_zones" "available" {}
 
+# Get existing KMS key for EKS cluster encryption
+data "aws_kms_key" "existing" {
+  key_id = "alias/eks/${var.cluster_name}"
+}
+
 locals {
   name_prefix = var.cluster_name
   common_tags = {
@@ -63,7 +68,7 @@ module "eks" {
 
   enable_cluster_creator_admin_permissions = true
 
-  # Use existing KMS key to avoid conflicts
+  # Use existing KMS key for cluster encryption
   cluster_encryption_config = {
     provider_key_arn = data.aws_kms_key.existing.arn
     resources        = ["secrets"]
@@ -71,6 +76,9 @@ module "eks" {
 
   # Disable CloudWatch log group creation to use existing one
   create_cloudwatch_log_group = false
+  
+  # Disable KMS key creation in EKS module since we're using existing one
+  create_kms_key = false
 
   eks_managed_node_group_defaults = {
     ami_type = "AL2_x86_64" # Amazon Linux 2 (x86-64)
@@ -175,29 +183,9 @@ data "terraform_remote_state" "ec2" {
 # EKS CLUSTER ACCESS CONFIGURATION
 # =============================================================================
 
-# Get current AWS caller identity
-data "aws_caller_identity" "current" {}
-
-# Get all IAM users in the account
-data "aws_iam_users" "all_users" {}
-
-# Get existing KMS key by alias
-data "aws_kms_key" "existing" {
-  key_id = "alias/eks/${var.cluster_name}"
-}
-
-# Grant access to all account users + explicitly specified users/roles
+# Parse comma-separated strings into lists
 locals {
-  # Get all user ARNs in the account
-  all_account_users = [for user in data.aws_iam_users.all_users.arns : user]
-  
-  # Combine provided users with all account users
-  cluster_admin_users_list = distinct(concat(
-    var.cluster_admin_users != "" ? split(",", var.cluster_admin_users) : [],
-    local.all_account_users
-  ))
-  
-  # Keep roles as specified (for CI/CD, etc.)
+  cluster_admin_users_list = var.cluster_admin_users != "" ? split(",", var.cluster_admin_users) : []
   cluster_admin_roles_list = var.cluster_admin_roles != "" ? split(",", var.cluster_admin_roles) : []
 }
 
@@ -208,6 +196,11 @@ resource "aws_eks_access_entry" "admin_users" {
   cluster_name = module.eks.cluster_name
   principal_arn = each.value
   type         = "STANDARD"
+  
+  # Handle existing access entries gracefully
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # Associate admin policy with users
@@ -233,6 +226,11 @@ resource "aws_eks_access_entry" "admin_roles" {
   cluster_name = module.eks.cluster_name
   principal_arn = each.value
   type         = "STANDARD"
+  
+  # Handle existing access entries gracefully
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # Associate admin policy with roles
