@@ -10,7 +10,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: scale-down
-        image: bitnami/kubectl:latest
+        image: alpine/k8s:1.28.0
         command:
         - /bin/bash
         - -c
