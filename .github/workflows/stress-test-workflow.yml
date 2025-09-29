@@ -24,7 +24,7 @@ env:
 jobs:
   stress-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     
     steps:
       - name: Checkout
@@ -92,10 +92,11 @@ jobs:
           kubectl scale deployment span-python --replicas=7 -n ${{ env.NAMESPACE }}
           kubectl scale deployment span-dotnet --replicas=7 -n ${{ env.NAMESPACE }}
           
-          # Start background job to scale down after 2 hours
-          echo "Starting background job to scale down replicas after 2 hours..."
-          nohup bash -c 'sleep 7200 && echo "Scaling down all generators after 2 hours..." && kubectl scale deployment span-go span-java span-node span-python span-dotnet --replicas=0 -n ${{ env.NAMESPACE }} && echo "All generators scaled down to 0 replicas"' > /tmp/scale-down.log 2>&1 &
-          echo "Background job started with PID: $!"
+          echo "All generators scaled up to 7 replicas for stress testing"
+          
+          # Deploy a Job that will scale down after 2 hours
+          kubectl apply -f stress-test/deploy/workloads/scale-down-job.yaml
+          echo "Scale-down job deployed - will scale generators to 0 after 2 hours"
 
       - name: Wait for load test apps to be ready
         run: |
@@ -171,4 +172,12 @@ jobs:
           failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           tag: ${{ steps.tag.outputs.tag }}
 
+      - name: Final cleanup and scale down
+        if: always()
+        run: |
+          echo "Final cleanup - scaling down all generators..."
+          kubectl scale deployment span-go span-java span-node span-python span-dotnet --replicas=0 -n ${{ env.NAMESPACE }} || true
+          echo "Cleaning up scale-down job..."
+          kubectl delete job scale-down-generators -n ${{ env.NAMESPACE }} || true
+          echo "All generators scaled down to 0 replicas and cleanup completed"
 

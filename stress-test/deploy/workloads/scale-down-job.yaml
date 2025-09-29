@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: scale-down-generators
+  namespace: load-test
+spec:
+  ttlSecondsAfterFinished: 300  # Clean up job after 5 minutes
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: scale-down
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Waiting 2 hours before scaling down generators..."
+          sleep 7200
+          echo "Scaling down all generators to 0 replicas..."
+          kubectl scale deployment span-go span-java span-node span-python span-dotnet --replicas=0 -n load-test
+          echo "All generators scaled down successfully"
