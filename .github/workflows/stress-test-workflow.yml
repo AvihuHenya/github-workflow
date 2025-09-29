@@ -1,0 +1,451 @@
+name: Stress Test on Pre/RC Release
+
+on:
+  push:
+    tags:
+      - 'v*-rc*'  # Release candidates
+      - 'v*-pre*' # Pre-releases
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to test (e.g., v1.0.0-rc1, v1.0.0-pre1)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: odigos-stress-test
+  NAMESPACE: load-test
+
+jobs:
+  stress-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Determine Release Tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+          echo "Release tag: ${{ steps.tag.outputs.tag }}"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.32.0'
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.15.2'
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Verify cluster connection
+        run: |
+          kubectl get nodes
+          kubectl get namespaces
+
+      - name: Install Odigos via Helm
+        run: |
+          helm repo add odigos https://odigos-io.github.io/odigos
+          helm repo update
+          helm install odigos odigos/odigos --version ${{ steps.tag.outputs.tag }} --namespace odigos-system --create-namespace --wait
+
+      - name: Wait for Odigos to be ready
+        run: |
+          kubectl wait --for=condition=available --timeout=300s deployment/odigos-odigos-odigos-operator -n odigos-system
+          kubectl wait --for=condition=available --timeout=300s deployment/odigos-odigos-odigos-scheduler -n odigos-system
+
+      - name: Create load-test namespace
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy Load Test Applications
+        run: |
+          # Deploy Go span generator with 10 replicas
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: go-span-generator
+            namespace: ${{ env.NAMESPACE }}
+            labels:
+              app: go-span-generator
+              odigos-target: "true"
+          spec:
+            replicas: 7
+            selector:
+              matchLabels:
+                app: go-span-generator
+                odigos-target: "true"
+            template:
+              metadata:
+                labels:
+                  app: go-span-generator
+                  odigos-target: "true"
+              spec:
+                terminationGracePeriodSeconds: 0
+                containers:
+                  - name: go-span-generator
+                    image: public.ecr.aws/odigos/go-span-gen:v0.0.1
+                    imagePullPolicy: Always
+                    env:
+                      - name: OTEL_SERVICE_NAME
+                        value: go-span-generator
+                      - name: OTEL_RESOURCE_ATTRIBUTES
+                        value: service.name=go-span-generator,service.version=v1.0.0
+                      - name: SPANS_PER_SEC
+                        value: "1000"
+                      - name: SPAN_BYTES
+                        value: "2000"
+                    resources:
+                      requests:
+                        cpu: "100m"
+                        memory: "64Mi"
+                      limits:
+                        cpu: "500m"
+                        memory: "256Mi"
+                    livenessProbe:
+                      exec:
+                        command:
+                          - pgrep
+                          - go-span-gen
+                      initialDelaySeconds: 30
+                      periodSeconds: 10
+                    readinessProbe:
+                      exec:
+                        command:
+                          - pgrep
+                          - go-span-gen
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: go-span-generator-service
+            namespace: ${{ env.NAMESPACE }}
+            labels:
+              app: go-span-generator
+          spec:
+            selector:
+              app: go-span-generator
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+            type: ClusterIP
+          EOF
+
+          # Deploy Java span generator with 8 replicas
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: java-span-generator
+            namespace: ${{ env.NAMESPACE }}
+            labels:
+              app: java-span-generator
+              odigos-target: "true"
+          spec:
+            replicas: 7
+            selector:
+              matchLabels:
+                app: java-span-generator
+                odigos-target: "true"
+            template:
+              metadata:
+                labels:
+                  app: java-span-generator
+                  odigos-target: "true"
+              spec:
+                terminationGracePeriodSeconds: 0
+                containers:
+                  - name: java-span-generator
+                    image: public.ecr.aws/odigos/java-span-gen:v0.0.1
+                    imagePullPolicy: Always
+                    env:
+                      - name: OTEL_SERVICE_NAME
+                        value: java-span-generator
+                      - name: OTEL_RESOURCE_ATTRIBUTES
+                        value: service.name=java-span-generator,service.version=v1.0.0
+                      - name: SPANS_PER_SEC
+                        value: "1000"
+                      - name: SPAN_BYTES
+                        value: "2000"
+                    resources:
+                      requests:
+                        cpu: "200m"
+                        memory: "128Mi"
+                      limits:
+                        cpu: "1000m"
+                        memory: "512Mi"
+                    livenessProbe:
+                      exec:
+                        command:
+                          - pgrep
+                          - java
+                      initialDelaySeconds: 30
+                      periodSeconds: 10
+                    readinessProbe:
+                      exec:
+                        command:
+                          - pgrep
+                          - java
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: java-span-generator-service
+            namespace: ${{ env.NAMESPACE }}
+            labels:
+              app: java-span-generator
+          spec:
+            selector:
+              app: java-span-generator
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+            type: ClusterIP
+          EOF
+
+          # Deploy Node.js span generator with 12 replicas
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: node-span-generator
+            namespace: ${{ env.NAMESPACE }}
+            labels:
+              app: node-span-generator
+              odigos-target: "true"
+          spec:
+            replicas: 7
+            selector:
+              matchLabels:
+                app: node-span-generator
+                odigos-target: "true"
+            template:
+              metadata:
+                labels:
+                  app: node-span-generator
+                  odigos-target: "true"
+              spec:
+                terminationGracePeriodSeconds: 0
+                containers:
+                  - name: node-span-generator
+                    image: public.ecr.aws/odigos/node-span-gen:v0.0.1
+                    imagePullPolicy: Always
+                    env:
+                      - name: OTEL_SERVICE_NAME
+                        value: node-span-generator
+                      - name: OTEL_RESOURCE_ATTRIBUTES
+                        value: service.name=node-span-generator,service.version=v1.0.0
+                      - name: SPANS_PER_SEC
+                        value: "1000"
+                      - name: SPAN_BYTES
+                        value: "2000"
+                    resources:
+                      requests:
+                        cpu: "50m"
+                        memory: "32Mi"
+                      limits:
+                        cpu: "200m"
+                        memory: "128Mi"
+                    livenessProbe:
+                      exec:
+                        command:
+                          - pgrep
+                          - node
+                      initialDelaySeconds: 30
+                      periodSeconds: 10
+                    readinessProbe:
+                      exec:
+                        command:
+                          - pgrep
+                          - node
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: node-span-generator-service
+            namespace: ${{ env.NAMESPACE }}
+            labels:
+              app: node-span-generator
+          spec:
+            selector:
+              app: node-span-generator
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+            type: ClusterIP
+          EOF
+
+          # Deploy Python span generator with 6 replicas
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: python-span-generator
+            namespace: ${{ env.NAMESPACE }}
+            labels:
+              app: python-span-generator
+              odigos-target: "true"
+          spec:
+            replicas: 7
+            selector:
+              matchLabels:
+                app: python-span-generator
+                odigos-target: "true"
+            template:
+              metadata:
+                labels:
+                  app: python-span-generator
+                  odigos-target: "true"
+              spec:
+                terminationGracePeriodSeconds: 0
+                containers:
+                  - name: python-span-generator
+                    image: public.ecr.aws/odigos/python-span-gen:v0.0.1
+                    imagePullPolicy: Always
+                    env:
+                      - name: OTEL_SERVICE_NAME
+                        value: python-span-generator
+                      - name: OTEL_RESOURCE_ATTRIBUTES
+                        value: service.name=python-span-generator,service.version=v1.0.0
+                      - name: SPANS_PER_SEC
+                        value: "1000"
+                      - name: SPAN_BYTES
+                        value: "2000"
+                    resources:
+                      requests:
+                        cpu: "300m"
+                        memory: "64Mi"
+                      limits:
+                        cpu: "600m"
+                        memory: "256Mi"
+                    livenessProbe:
+                      exec:
+                        command:
+                          - pgrep
+                          - python
+                      initialDelaySeconds: 30
+                      periodSeconds: 10
+                    readinessProbe:
+                      exec:
+                        command:
+                          - pgrep
+                          - python
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: python-span-generator-service
+            namespace: ${{ env.NAMESPACE }}
+            labels:
+              app: python-span-generator
+          spec:
+            selector:
+              app: python-span-generator
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+            type: ClusterIP
+          EOF
+
+      - name: Wait for load test apps to be ready
+        run: |
+          kubectl wait --for=condition=available --timeout=300s deployment/go-span-generator -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/java-span-generator -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/node-span-generator -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/python-span-generator -n ${{ env.NAMESPACE }}
+
+      - name: Get cluster information
+        id: cluster-info
+        run: |
+          # Get cluster endpoint
+          CLUSTER_ENDPOINT=$(aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.endpoint' --output text)
+          echo "cluster_endpoint=$CLUSTER_ENDPOINT" >> $GITHUB_OUTPUT
+          
+          # Get cluster region
+          echo "cluster_region=${{ env.AWS_REGION }}" >> $GITHUB_OUTPUT
+          
+          # Get cluster name
+          echo "cluster_name=${{ env.EKS_CLUSTER_NAME }}" >> $GITHUB_OUTPUT
+
+      - name: Get Grafana dashboard URL
+        id: grafana-info
+        run: |
+          # Try to get Grafana service external IP or use port-forward instructions
+          GRAFANA_IP=$(kubectl get svc -n monitoring grafana -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+          GRAFANA_NODEPORT=$(kubectl get svc -n monitoring grafana -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "")
+          
+          if [ -n "$GRAFANA_IP" ]; then
+            echo "grafana_url=http://$GRAFANA_IP:3000" >> $GITHUB_OUTPUT
+          elif [ -n "$GRAFANA_NODEPORT" ]; then
+            echo "grafana_url=http://<NODE_IP>:$GRAFANA_NODEPORT" >> $GITHUB_OUTPUT
+          else
+            echo "grafana_url=Use: kubectl port-forward -n monitoring svc/grafana 3000:3000" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify Odigos sources detection
+        run: |
+          echo "Waiting for Odigos to detect sources..."
+          sleep 30
+          kubectl get sources -n ${{ env.NAMESPACE }} || echo "No sources found yet"
+          kubectl get sources -n odigos-system || echo "No sources in odigos-system"
+
+      - name: Send Slack notification - Success
+        if: success()
+        uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
+        with:
+          webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
+          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Grafana: ${{ steps.grafana-info.outputs.grafana_url }}"
+          failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }}"
+          tag: ${{ steps.tag.outputs.tag }}
+
+      - name: Send Slack notification - Failure
+        if: failure()
+        uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
+        with:
+          webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
+          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Grafana: ${{ steps.grafana-info.outputs.grafana_url }}"
+          failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }}"
+          tag: ${{ steps.tag.outputs.tag }}
+
+      - name: Cleanup on failure
+        if: failure()
+        run: |
+          echo "Cleaning up failed deployment..."
+          helm uninstall odigos -n odigos-system || true
+          kubectl delete namespace ${{ env.NAMESPACE }} || true
