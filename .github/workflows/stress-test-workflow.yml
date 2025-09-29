@@ -74,8 +74,7 @@ jobs:
 
       - name: Wait for Odigos to be ready
         run: |
-          kubectl wait --for=condition=available --timeout=300s deployment/odigos-odigos-odigos-operator -n odigos-system
-          kubectl wait --for=condition=available --timeout=300s deployment/odigos-odigos-odigos-scheduler -n odigos-system
+          kubectl wait --for=condition=available --timeout=300s deployment/odigos-scheduler -n odigos-system
 
       - name: Create load-test namespace
         run: |
@@ -83,7 +82,7 @@ jobs:
 
       - name: Deploy Load Test Applications
         run: |
-          # Deploy Go span generator with 10 replicas
+          # Deploy Go span generator with 7 replicas
           cat <<EOF | kubectl apply -f -
           apiVersion: apps/v1
           kind: Deployment
@@ -158,7 +157,7 @@ jobs:
             type: ClusterIP
           EOF
 
-          # Deploy Java span generator with 8 replicas
+          # Deploy Java span generator with 7 replicas
           cat <<EOF | kubectl apply -f -
           apiVersion: apps/v1
           kind: Deployment
@@ -233,7 +232,6 @@ jobs:
             type: ClusterIP
           EOF
 
-          # Deploy Node.js span generator with 12 replicas
           cat <<EOF | kubectl apply -f -
           apiVersion: apps/v1
           kind: Deployment
@@ -308,7 +306,7 @@ jobs:
             type: ClusterIP
           EOF
 
-          # Deploy Python span generator with 6 replicas
+          # Deploy Python span generator with 7 replicas
           cat <<EOF | kubectl apply -f -
           apiVersion: apps/v1
           kind: Deployment
@@ -402,6 +400,10 @@ jobs:
           
           # Get cluster name
           echo "cluster_name=${{ env.EKS_CLUSTER_NAME }}" >> $GITHUB_OUTPUT
+          
+          # Get EC2 instance ID for port forwarding
+          INSTANCE_ID=$(aws ec2 describe-instances --region ${{ env.AWS_REGION }} --filters "Name=tag:Name,Values=*${{ env.EKS_CLUSTER_NAME }}*" "Name=instance-state-name,Values=running" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
       - name: Get Grafana dashboard URL
         id: grafana-info
@@ -418,20 +420,13 @@ jobs:
             echo "grafana_url=Use: kubectl port-forward -n monitoring svc/grafana 3000:3000" >> $GITHUB_OUTPUT
           fi
 
-      - name: Verify Odigos sources detection
-        run: |
-          echo "Waiting for Odigos to detect sources..."
-          sleep 30
-          kubectl get sources -n ${{ env.NAMESPACE }} || echo "No sources found yet"
-          kubectl get sources -n odigos-system || echo "No sources in odigos-system"
-
       - name: Send Slack notification - Success
         if: success()
         uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
         with:
           webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
-          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Grafana: ${{ steps.grafana-info.outputs.grafana_url }}"
-          failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }}"
+          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
+          failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           tag: ${{ steps.tag.outputs.tag }}
 
       - name: Send Slack notification - Failure
@@ -439,8 +434,8 @@ jobs:
         uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
         with:
           webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
-          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Grafana: ${{ steps.grafana-info.outputs.grafana_url }}"
-          failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }}"
+          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
+          failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           tag: ${{ steps.tag.outputs.tag }}
 
       - name: Cleanup on failure
