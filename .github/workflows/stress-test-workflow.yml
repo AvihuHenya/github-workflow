@@ -139,28 +139,12 @@ jobs:
           
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
-      - name: Get Grafana dashboard URL
-        id: grafana-info
-        run: |
-          # Try to get Grafana service external IP or use port-forward instructions
-          GRAFANA_IP=$(kubectl get svc -n monitoring grafana -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-          GRAFANA_NODEPORT=$(kubectl get svc -n monitoring grafana -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "")
-          
-          if [ -n "$GRAFANA_IP" ]; then
-            echo "grafana_url=http://$GRAFANA_IP:3000" >> $GITHUB_OUTPUT
-          elif [ -n "$GRAFANA_NODEPORT" ]; then
-            echo "grafana_url=http://<NODE_IP>:$GRAFANA_NODEPORT" >> $GITHUB_OUTPUT
-          else
-            echo "grafana_url=Use: kubectl port-forward -n monitoring svc/grafana 3000:3000" >> $GITHUB_OUTPUT
-          fi
-
       - name: Send Slack notification - Success
         if: success()
         uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
         with:
           webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
-          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7), .NET(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
-          failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
+          success-description: "Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           tag: ${{ steps.tag.outputs.tag }}
 
       - name: Send Slack notification - Failure
@@ -168,8 +152,7 @@ jobs:
         uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
         with:
           webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
-          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7), .NET(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
-          failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
+          failure-description: "Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           tag: ${{ steps.tag.outputs.tag }}
 
 
