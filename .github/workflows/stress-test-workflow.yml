@@ -82,311 +82,28 @@ jobs:
 
       - name: Deploy Load Test Applications
         run: |
-          # Deploy Go span generator with 7 replicas
-          cat <<EOF | kubectl apply -f -
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: go-span-generator
-            namespace: ${{ env.NAMESPACE }}
-            labels:
-              app: go-span-generator
-              odigos-target: "true"
-          spec:
-            replicas: 7
-            selector:
-              matchLabels:
-                app: go-span-generator
-                odigos-target: "true"
-            template:
-              metadata:
-                labels:
-                  app: go-span-generator
-                  odigos-target: "true"
-              spec:
-                terminationGracePeriodSeconds: 0
-                containers:
-                  - name: go-span-generator
-                    image: public.ecr.aws/odigos/go-span-gen:v0.0.1
-                    imagePullPolicy: Always
-                    env:
-                      - name: OTEL_SERVICE_NAME
-                        value: go-span-generator
-                      - name: OTEL_RESOURCE_ATTRIBUTES
-                        value: service.name=go-span-generator,service.version=v1.0.0
-                      - name: SPANS_PER_SEC
-                        value: "1000"
-                      - name: SPAN_BYTES
-                        value: "2000"
-                    resources:
-                      requests:
-                        cpu: "100m"
-                        memory: "64Mi"
-                      limits:
-                        cpu: "500m"
-                        memory: "256Mi"
-                    livenessProbe:
-                      exec:
-                        command:
-                          - pgrep
-                          - go-span-gen
-                      initialDelaySeconds: 30
-                      periodSeconds: 10
-                    readinessProbe:
-                      exec:
-                        command:
-                          - pgrep
-                          - go-span-gen
-                      initialDelaySeconds: 5
-                      periodSeconds: 5
-          ---
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: go-span-generator-service
-            namespace: ${{ env.NAMESPACE }}
-            labels:
-              app: go-span-generator
-          spec:
-            selector:
-              app: go-span-generator
-            ports:
-              - protocol: TCP
-                port: 8080
-                targetPort: 8080
-            type: ClusterIP
-          EOF
-
-          # Deploy Java span generator with 7 replicas
-          cat <<EOF | kubectl apply -f -
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: java-span-generator
-            namespace: ${{ env.NAMESPACE }}
-            labels:
-              app: java-span-generator
-              odigos-target: "true"
-          spec:
-            replicas: 7
-            selector:
-              matchLabels:
-                app: java-span-generator
-                odigos-target: "true"
-            template:
-              metadata:
-                labels:
-                  app: java-span-generator
-                  odigos-target: "true"
-              spec:
-                terminationGracePeriodSeconds: 0
-                containers:
-                  - name: java-span-generator
-                    image: public.ecr.aws/odigos/java-span-gen:v0.0.1
-                    imagePullPolicy: Always
-                    env:
-                      - name: OTEL_SERVICE_NAME
-                        value: java-span-generator
-                      - name: OTEL_RESOURCE_ATTRIBUTES
-                        value: service.name=java-span-generator,service.version=v1.0.0
-                      - name: SPANS_PER_SEC
-                        value: "1000"
-                      - name: SPAN_BYTES
-                        value: "2000"
-                    resources:
-                      requests:
-                        cpu: "200m"
-                        memory: "128Mi"
-                      limits:
-                        cpu: "1000m"
-                        memory: "512Mi"
-                    livenessProbe:
-                      exec:
-                        command:
-                          - pgrep
-                          - java
-                      initialDelaySeconds: 30
-                      periodSeconds: 10
-                    readinessProbe:
-                      exec:
-                        command:
-                          - pgrep
-                          - java
-                      initialDelaySeconds: 5
-                      periodSeconds: 5
-          ---
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: java-span-generator-service
-            namespace: ${{ env.NAMESPACE }}
-            labels:
-              app: java-span-generator
-          spec:
-            selector:
-              app: java-span-generator
-            ports:
-              - protocol: TCP
-                port: 8080
-                targetPort: 8080
-            type: ClusterIP
-          EOF
-
-          cat <<EOF | kubectl apply -f -
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: node-span-generator
-            namespace: ${{ env.NAMESPACE }}
-            labels:
-              app: node-span-generator
-              odigos-target: "true"
-          spec:
-            replicas: 7
-            selector:
-              matchLabels:
-                app: node-span-generator
-                odigos-target: "true"
-            template:
-              metadata:
-                labels:
-                  app: node-span-generator
-                  odigos-target: "true"
-              spec:
-                terminationGracePeriodSeconds: 0
-                containers:
-                  - name: node-span-generator
-                    image: public.ecr.aws/odigos/node-span-gen:v0.0.1
-                    imagePullPolicy: Always
-                    env:
-                      - name: OTEL_SERVICE_NAME
-                        value: node-span-generator
-                      - name: OTEL_RESOURCE_ATTRIBUTES
-                        value: service.name=node-span-generator,service.version=v1.0.0
-                      - name: SPANS_PER_SEC
-                        value: "1000"
-                      - name: SPAN_BYTES
-                        value: "2000"
-                    resources:
-                      requests:
-                        cpu: "50m"
-                        memory: "32Mi"
-                      limits:
-                        cpu: "200m"
-                        memory: "128Mi"
-                    livenessProbe:
-                      exec:
-                        command:
-                          - pgrep
-                          - node
-                      initialDelaySeconds: 30
-                      periodSeconds: 10
-                    readinessProbe:
-                      exec:
-                        command:
-                          - pgrep
-                          - node
-                      initialDelaySeconds: 5
-                      periodSeconds: 5
-          ---
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: node-span-generator-service
-            namespace: ${{ env.NAMESPACE }}
-            labels:
-              app: node-span-generator
-          spec:
-            selector:
-              app: node-span-generator
-            ports:
-              - protocol: TCP
-                port: 8080
-                targetPort: 8080
-            type: ClusterIP
-          EOF
-
-          # Deploy Python span generator with 7 replicas
-          cat <<EOF | kubectl apply -f -
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: python-span-generator
-            namespace: ${{ env.NAMESPACE }}
-            labels:
-              app: python-span-generator
-              odigos-target: "true"
-          spec:
-            replicas: 7
-            selector:
-              matchLabels:
-                app: python-span-generator
-                odigos-target: "true"
-            template:
-              metadata:
-                labels:
-                  app: python-span-generator
-                  odigos-target: "true"
-              spec:
-                terminationGracePeriodSeconds: 0
-                containers:
-                  - name: python-span-generator
-                    image: public.ecr.aws/odigos/python-span-gen:v0.0.1
-                    imagePullPolicy: Always
-                    env:
-                      - name: OTEL_SERVICE_NAME
-                        value: python-span-generator
-                      - name: OTEL_RESOURCE_ATTRIBUTES
-                        value: service.name=python-span-generator,service.version=v1.0.0
-                      - name: SPANS_PER_SEC
-                        value: "1000"
-                      - name: SPAN_BYTES
-                        value: "2000"
-                    resources:
-                      requests:
-                        cpu: "300m"
-                        memory: "64Mi"
-                      limits:
-                        cpu: "600m"
-                        memory: "256Mi"
-                    livenessProbe:
-                      exec:
-                        command:
-                          - pgrep
-                          - python
-                      initialDelaySeconds: 30
-                      periodSeconds: 10
-                    readinessProbe:
-                      exec:
-                        command:
-                          - pgrep
-                          - python
-                      initialDelaySeconds: 5
-                      periodSeconds: 5
-          ---
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: python-span-generator-service
-            namespace: ${{ env.NAMESPACE }}
-            labels:
-              app: python-span-generator
-          spec:
-            selector:
-              app: python-span-generator
-            ports:
-              - protocol: TCP
-                port: 8080
-                targetPort: 8080
-            type: ClusterIP
-          EOF
+          # Deploy all span generators using the manifest file (with default replica counts)
+          kubectl apply -f stress-test/deploy/workloads/span-generators.yaml
+          
+          # Scale up all generators to 7 replicas for stress testing
+          kubectl scale deployment span-go --replicas=7 -n ${{ env.NAMESPACE }}
+          kubectl scale deployment span-java --replicas=7 -n ${{ env.NAMESPACE }}
+          kubectl scale deployment span-node --replicas=7 -n ${{ env.NAMESPACE }}
+          kubectl scale deployment span-python --replicas=7 -n ${{ env.NAMESPACE }}
+          kubectl scale deployment span-dotnet --replicas=7 -n ${{ env.NAMESPACE }}
+          
+          # Start background job to scale down after 2 hours
+          echo "Starting background job to scale down replicas after 2 hours..."
+          nohup bash -c 'sleep 7200 && echo "Scaling down all generators after 2 hours..." && kubectl scale deployment span-go span-java span-node span-python span-dotnet --replicas=0 -n ${{ env.NAMESPACE }} && echo "All generators scaled down to 0 replicas"' > /tmp/scale-down.log 2>&1 &
+          echo "Background job started with PID: $!"
 
       - name: Wait for load test apps to be ready
         run: |
-          kubectl wait --for=condition=available --timeout=300s deployment/go-span-generator -n ${{ env.NAMESPACE }}
-          kubectl wait --for=condition=available --timeout=300s deployment/java-span-generator -n ${{ env.NAMESPACE }}
-          kubectl wait --for=condition=available --timeout=300s deployment/node-span-generator -n ${{ env.NAMESPACE }}
-          kubectl wait --for=condition=available --timeout=300s deployment/python-span-generator -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/span-go -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/span-java -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/span-node -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/span-python -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=available --timeout=300s deployment/span-dotnet -n ${{ env.NAMESPACE }}
 
       - name: Get cluster information
         id: cluster-info
@@ -441,7 +158,7 @@ jobs:
         uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
         with:
           webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
-          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
+          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7), .NET(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           tag: ${{ steps.tag.outputs.tag }}
 
@@ -450,7 +167,7 @@ jobs:
         uses: odigos-io/ci-core/.github/actions/slack-release-notification@main
         with:
           webhook-url: ${{ secrets.ODIGOS_RELEASE_STATUS_WEBHOOK_URL }}
-          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
+          success-description: "🚀 Stress Test Completed Successfully! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Load Test Apps: Go(7), Java(7), Node(7), Python(7), .NET(7) | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           tag: ${{ steps.tag.outputs.tag }}
 
@@ -458,5 +175,14 @@ jobs:
         if: failure()
         run: |
           echo "Cleaning up failed deployment..."
+          # Kill any background scale-down jobs
+          pkill -f "kubectl scale deployment" || true
           helm uninstall odigos -n odigos-system || true
           kubectl delete namespace ${{ env.NAMESPACE }} || true
+
+      - name: Final cleanup and scale down
+        if: always()
+        run: |
+          echo "Final cleanup - scaling down all generators..."
+          kubectl scale deployment span-go span-java span-node span-python span-dotnet --replicas=0 -n ${{ env.NAMESPACE }} || true
+          echo "All generators scaled down to 0 replicas"
