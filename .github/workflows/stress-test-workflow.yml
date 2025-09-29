@@ -402,7 +402,23 @@ jobs:
           echo "cluster_name=${{ env.EKS_CLUSTER_NAME }}" >> $GITHUB_OUTPUT
           
           # Get EC2 instance ID for port forwarding
-          INSTANCE_ID=$(aws ec2 describe-instances --region ${{ env.AWS_REGION }} --filters "Name=tag:Name,Values=*${{ env.EKS_CLUSTER_NAME }}*" "Name=instance-state-name,Values=running" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+          echo "Looking for EC2 instances in cluster: ${{ env.EKS_CLUSTER_NAME }}"
+          INSTANCE_ID=$(aws ec2 describe-instances --region ${{ env.AWS_REGION }} --filters "Name=tag:kubernetes.io/cluster/${{ env.EKS_CLUSTER_NAME }},Values=owned" "Name=instance-state-name,Values=running" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+          echo "First attempt - Instance ID: $INSTANCE_ID"
+          
+          if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "Trying fallback method..."
+            # Fallback: try to get any running instance in the cluster
+            INSTANCE_ID=$(aws ec2 describe-instances --region ${{ env.AWS_REGION }} --filters "Name=instance-state-name,Values=running" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+            echo "Fallback - Instance ID: $INSTANCE_ID"
+          fi
+          
+          # If still no instance found, set a placeholder
+          if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
+            INSTANCE_ID="INSTANCE_ID_NOT_FOUND"
+            echo "Warning: No EC2 instance found for port forwarding"
+          fi
+          
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
       - name: Get Grafana dashboard URL
