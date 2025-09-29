@@ -171,9 +171,4 @@ jobs:
           failure-description: "❌ Stress Test Failed! Release: ${{ steps.tag.outputs.tag }} | Cluster: ${{ steps.cluster-info.outputs.cluster_name }} | Region: ${{ steps.cluster-info.outputs.cluster_region }} | Check GitHub Actions logs for details | Connect: aws eks update-kubeconfig --region ${{ steps.cluster-info.outputs.cluster_region }} --name ${{ steps.cluster-info.outputs.cluster_name }} | Port Forward: ClickHouse(8123): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"8123\"],\"localPortNumber\":[\"8123\"]}' | Prometheus(9090): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"9090\"],\"localPortNumber\":[\"9090\"]}' | Grafana(3000): aws ssm start-session --target ${{ steps.cluster-info.outputs.instance_id }} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'"
           tag: ${{ steps.tag.outputs.tag }}
 
-      - name: Final cleanup and scale down
-        if: always()
-        run: |
-          echo "Final cleanup - scaling down all generators..."
-          kubectl scale deployment span-go span-java span-node span-python span-dotnet --replicas=0 -n ${{ env.NAMESPACE }} || true
-          echo "All generators scaled down to 0 replicas"
+
