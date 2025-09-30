@@ -45,9 +45,8 @@ spec:
       containers:
       - name: scale-down
         image: alpine/k8s:1.28.0
-        command:
-        - /bin/bash
-        - -c
+        command: ["/bin/bash", "-c"]
+        args:
         - |
           echo "Waiting 2 hours before scaling down generators..."
           sleep 7200
