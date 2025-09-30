@@ -7,7 +7,7 @@ metadata:
     app: java-span-generator
     odigos-target: "true"
 spec:
-  replicas: 5
+  replicas: 7
   selector:
     matchLabels:
       app: java-span-generator
