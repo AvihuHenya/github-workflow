@@ -51,6 +51,6 @@ spec:
         - |
           echo "Waiting 2 hours before scaling down generators..."
           sleep 7200
-          echo "Scaling down all generators to 0 replicas..."
+          echo "Scaling down all generators from 1 replica to 0 replicas..."
           kubectl scale deployment go-span-generator java-span-generator node-span-generator python-span-generator --replicas=0 -n load-test
           echo "All generators scaled down successfully"
