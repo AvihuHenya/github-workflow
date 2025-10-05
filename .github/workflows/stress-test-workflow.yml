@@ -114,13 +114,13 @@ jobs:
           # Get cluster name
           echo "cluster_name=${{ env.EKS_CLUSTER_NAME }}" >> $GITHUB_OUTPUT
           
-          # Get EC2 instance ID for port forwarding - specifically look for k6-runner where Grafana is running
-          echo "Looking for k6-runner instance for Grafana port forwarding..."
+          # Get EC2 instance ID for port forwarding - specifically look for k6-runner where infra services are running
+          echo "Looking for EC2 instance for Grafana port forwarding..."
           INSTANCE_ID=$(aws ec2 describe-instances --region ${{ env.AWS_REGION }} --filters "Name=tag:Name,Values=k6-runner" "Name=instance-state-name,Values=running" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-          echo "k6-runner Instance ID: $INSTANCE_ID"
+          echo "EC2 Instance ID: $INSTANCE_ID"
           
           if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
-            echo "k6-runner not found, trying cluster nodes as fallback..."
+            echo "EC2 instance not found, trying cluster nodes as fallback..."
             # Fallback: try to get any running instance in the cluster
             INSTANCE_ID=$(aws ec2 describe-instances --region ${{ env.AWS_REGION }} --filters "Name=tag:kubernetes.io/cluster/${{ env.EKS_CLUSTER_NAME }},Values=owned" "Name=instance-state-name,Values=running" --query 'Reservations[0].Instances[0].InstanceId' --output text)
             echo "Cluster node Instance ID: $INSTANCE_ID"
